@@ -1,7 +1,5 @@
 import os
-import json
 import sqlite3
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -10,8 +8,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "sayf_admin")
-ZEIN_API_KEY = os.getenv("ZEIN_API_KEY", "_UMp2U9ww7ShQTi62W1XG9ZSA4RhTg-S8ok65Z8vZS1WDuJoWcu4nt97IIP3O0IJ")
-ZEIN_BASE_URL = "https://api.zein-store.com"
 
 app = FastAPI()
 
@@ -60,7 +56,7 @@ async def execute_order(request: Request):
 
     current_bal = get_user_balance(u_id)
     if current_bal < p_price:
-        return {"status": "error", "message": "قالدۇق پۇلىڭىز يەتمىدى! ئادېمىن بىلەن ئالاقىلىشىپ پۇل قاچىلاڭ."}
+        return {"status": "error", "message": "قالدۇق پۇلىڭىز يەتمىدى! ئادېمىنغا باغلانما ئارقىلىق پۇل قاچىلىتىڭ."}
 
     update_user_balance(u_id, -p_price)
 
@@ -74,13 +70,14 @@ async def execute_order(request: Request):
     try:
         await bot_app.bot.send_message(chat_id=ADMIN_ID, text=order_msg, parse_mode="HTML")
     except Exception as e:
-        print("Admin notification error:", e)
+        print("Error sending to admin:", e)
 
-    return {"status": "success", "message": "زاكاز مۇۋەپپەقىيەتلىك تاپشۇرۇلدى!"}
+    return {"status": "success", "message": "زاكاز مۇۋەپپەقىيەتلىك ئەۋەتىلدى! ئادېمىن تەستىقلاپ قاچىلايدۇ."}
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_shop():
-    html = f"""
+    # سىرتتىن ھېچ نەرسە كۈتمەيدىغان، تېلېگرام ئىچىدە كاپالەتلىك ئېچىلىدىغان HTML بېتى
+    return """
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
@@ -89,40 +86,36 @@ async def serve_shop():
         <title>SAYF STORE</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
-            * {{ box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
-            body {{ background-color: #0b0c0e; color: #ffffff; direction: rtl; padding-bottom: 90px; }}
-            .top-navbar {{ background-color: #056a29; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }}
-            .logo-box {{ display: flex; align-items: center; gap: 8px; }}
-            .back-arrow {{ display: none; font-size: 22px; color: #fff; cursor: pointer; }}
-            .brand-name {{ font-size: 19px; font-weight: 900; color: #22c55e; letter-spacing: 1px; }}
-            .balance-chip {{ background: rgba(0, 0, 0, 0.4); border-radius: 18px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; }}
-            .plus-btn {{ background: #fff; color: #056a29; width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; }}
-            .content {{ padding: 14px; }}
-            .banner-box {{ background: radial-gradient(circle at center, #05451a 0%, #08170e 100%); border: 1.5px solid #10b981; border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 14px; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25); }}
-            .banner-title {{ color: #34d399; font-size: 13px; font-weight: bold; margin-bottom: 10px; }}
-            .banner-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; border-top: 1px solid #14532d; padding-top: 10px; }}
-            .b-item {{ font-size: 9px; color: #a7f3d0; line-height: 1.2; }}
-            .b-icon {{ font-size: 15px; color: #10b981; margin-bottom: 4px; }}
-            .page-title {{ font-size: 17px; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: #f3f4f6; }}
-            .search-bar {{ width: 100%; background: #14171d; border: 1px solid #232733; border-radius: 22px; padding: 10px 16px; color: white; font-size: 13px; outline: none; margin-bottom: 16px; }}
-            .cards-layout {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-            .card-wrap {{ background: #14171d; border: 1.5px solid #059669; border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }}
-            .card-wrap:active {{ transform: scale(0.96); }}
-            .card-img {{ width: 100%; height: 105px; background: #000; overflow: hidden; }}
-            .card-img img {{ width: 100%; height: 100%; object-fit: cover; }}
-            .card-name {{ padding: 8px 4px; text-align: center; background: #0f131a; font-size: 12px; font-weight: bold; color: #f9fafb; }}
-            .product-item {{ background: #14171d; border: 1px solid #232733; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }}
-            .p-name {{ font-size: 14px; font-weight: bold; }}
-            .p-price {{ color: #10b981; font-size: 13px; margin-top: 4px; }}
-            .btn-buy {{ background: #059669; color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }}
-            .bottom-bar {{ position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; display: flex; justify-content: space-around; align-items: center; padding: 8px 0; z-index: 100; }}
-            .tab-btn {{ color: #9ca3af; font-size: 11px; text-align: center; cursor: pointer; flex: 1; }}
-            .center-tab {{ width: 48px; height: 48px; background: #056a29; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; margin-top: -24px; border: 3px solid #0b0c0e; box-shadow: 0 4px 10px rgba(5, 106, 41, 0.5); cursor: pointer; }}
+            * { box-sizing: border-box; font-family: sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+            body { background-color: #0b0c0e; color: #ffffff; direction: rtl; padding-bottom: 90px; }
+            .top-navbar { background-color: #056a29; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+            .brand-name { font-size: 19px; font-weight: 900; color: #22c55e; letter-spacing: 1px; }
+            .back-arrow { display: none; font-size: 20px; color: #fff; cursor: pointer; margin-left: 8px; }
+            .balance-chip { background: rgba(0, 0, 0, 0.4); border-radius: 18px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; }
+            .plus-btn { background: #fff; color: #056a29; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; }
+            .content { padding: 14px; }
+            .banner-box { background: radial-gradient(circle, #05451a 0%, #08170e 100%); border: 1.5px solid #10b981; border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 14px; }
+            .banner-title { color: #34d399; font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+            .banner-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; border-top: 1px solid #14532d; padding-top: 8px; }
+            .b-item { font-size: 9px; color: #a7f3d0; }
+            .page-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; color: #f3f4f6; }
+            .cards-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+            .card-wrap { background: #14171d; border: 1.5px solid #059669; border-radius: 16px; padding: 20px 10px; text-align: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+            .card-wrap:active { transform: scale(0.96); background: #1e2430; }
+            .card-icon { font-size: 34px; margin-bottom: 8px; }
+            .card-name { font-size: 13px; font-weight: bold; color: #f9fafb; }
+            .product-item { background: #14171d; border: 1px solid #232733; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+            .p-name { font-size: 14px; font-weight: bold; }
+            .p-price { color: #10b981; font-size: 13px; margin-top: 4px; }
+            .btn-buy { background: #059669; color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
+            .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; display: flex; justify-content: space-around; align-items: center; padding: 8px 0; z-index: 100; }
+            .tab-btn { color: #9ca3af; font-size: 11px; text-align: center; cursor: pointer; flex: 1; }
+            .center-tab { width: 46px; height: 46px; background: #056a29; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; margin-top: -22px; border: 3px solid #0b0c0e; cursor: pointer; }
         </style>
     </head>
     <body>
         <div class="top-navbar">
-            <div class="logo-box">
+            <div style="display:flex; align-items:center;">
                 <span class="back-arrow" id="btnBack" onclick="goBack()">➜</span>
                 <span class="brand-name">SAYF STORE</span>
             </div>
@@ -135,213 +128,180 @@ async def serve_shop():
         <div class="content">
             <div id="homeBanner">
                 <div class="banner-box">
-                    <div class="banner-title">بوابتك الموثوقة لكافة الخدمات الرقمية ⚡ SAYF STORE</div>
+                    <div class="banner-title">بوابتك لكافة الخدمات الرقمية ⚡ SAYF STORE</div>
                     <div class="banner-grid">
-                        <div class="b-item"><div class="b-icon">⚡</div>تنفيذ فوري</div>
-                        <div class="b-item"><div class="b-icon">🎯</div>دقة وأمان</div>
-                        <div class="b-item"><div class="b-icon">🎧</div>دعم 24/7</div>
-                        <div class="b-item"><div class="b-icon">💎</div>أفضل العروض</div>
+                        <div class="b-item">⚡ فوري</div>
+                        <div class="b-item">🎯 أمان</div>
+                        <div class="b-item">🎧 دعم 24/7</div>
+                        <div class="b-item">💎 أفضل سعر</div>
                     </div>
                 </div>
             </div>
 
-            <div class="page-title" id="secTitle">
-                <span>تصنيفات المتجر</span>
-            </div>
-
-            <input type="text" class="search-bar" placeholder="بحث عن منتج...">
+            <div class="page-title" id="secTitle">تصنيفات المتجر</div>
             <div id="viewContainer" class="cards-layout"></div>
         </div>
 
         <div class="bottom-bar">
             <div class="tab-btn" onclick="contactAdmin()">👤 حسابي</div>
-            <div class="tab-btn" onclick="contactAdmin()">👛 شحن رصيد</div>
+            <div class="tab-btn" onclick="contactAdmin()">👛 شحن</div>
             <div class="center-tab" onclick="renderHome()">🏠</div>
             <div class="tab-btn" onclick="contactAdmin()">📋 طلباتي</div>
-            <div class="tab-btn" onclick="contactAdmin()">🎧 الدعم الفني</div>
+            <div class="tab-btn" onclick="contactAdmin()">🎧 الدعم</div>
         </div>
 
         <script>
             const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
+            try { tg.ready(); tg.expand(); } catch(e){}
 
-            const ADMIN_CHAT = "https://t.me/{ADMIN_USERNAME}";
             let currentUserId = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 0;
             let currentLevel = 'home';
             let activeCat = null;
 
-            // كودنىڭ ئىچىگە بىۋاسىتە كىرگۈزۈلگەن سىفىرلىق سانلىق مەلۇمات (تور توختاپ قالمايدۇ)
-            const LOCAL_DATA = {{
+            const DB = {
                 categories: [
-                    {{"id": "games", "name": "قسم الألعاب", "img": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&auto=format&fit=crop"}},
-                    {{"id": "apps", "name": "قسم التطبيقات", "img": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop"}},
-                    {{"id": "cards", "name": "بطاقات الكترونية", "img": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&auto=format&fit=crop"}},
-                    {{"id": "balance", "name": "الأرصدة والعملات", "img": "https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&auto=format&fit=crop"}}
+                    { id: "games", name: "قسم الألعاب", icon: "🎮" },
+                    { id: "apps", name: "قسم التطبيقات", icon: "🔮" },
+                    { id: "cards", name: "بطاقات الكترونية", icon: "💳" },
+                    { id: "balance", name: "الأرصدة والعملات", icon: "🪙" }
                 ],
-                subcategories: {{
+                subcategories: {
                     "games": [
-                        {{"id": "pubg", "name": "قسم ببجي", "img": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&auto=format&fit=crop"}},
-                        {{"id": "freefire", "name": "قسم فري فاير", "img": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=500&auto=format&fit=crop"}},
-                        {{"id": "jawaker", "name": "قسم جواكر", "img": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop"}}
+                        { id: "pubg", name: "قسم ببجي (PUBG)", icon: "🎯" },
+                        { id: "freefire", name: "قسم فري فاير", icon: "🔥" },
+                        { id: "jawaker", name: "قسم جواكر", icon: "🃏" }
                     ],
                     "apps": [
-                        {{"id": "tg_prem", "name": "تيليجرام بريميوم", "img": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop"}},
-                        {{"id": "tiktok", "name": "عملات تيك توك", "img": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&auto=format&fit=crop"}}
+                        { id: "tg_prem", name: "تيليجرام بريميوم", icon: "⭐" },
+                        { id: "tiktok", name: "عملات تيك توك", icon: "🎵" }
                     ],
                     "cards": [
-                        {{"id": "google", "name": "بطاقات جوجل بلاي", "img": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&auto=format&fit=crop"}}
+                        { id: "google", name: "بطاقات جوجل بلاي", icon: "🎁" }
                     ],
                     "balance": [
-                        {{"id": "usdt", "name": "شحن عملات رقمية", "img": "https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&auto=format&fit=crop"}}
+                        { id: "usdt", name: "شحن رصيد US", icon: "💵" }
                     ]
-                }},
-                products: {{
+                },
+                products: {
                     "pubg": [
-                        {{"id": "pubg_60", "name": "PUBG Mobile 60 UC", "price": "0.99"}},
-                        {{"id": "pubg_325", "name": "PUBG Mobile 325 UC", "price": "4.95"}},
-                        {{"id": "pubg_660", "name": "PUBG Mobile 660 UC", "price": "9.90"}}
+                        { id: "pubg_60", name: "PUBG Mobile 60 UC", price: "0.99" },
+                        { id: "pubg_325", name: "PUBG Mobile 325 UC", price: "4.95" },
+                        { id: "pubg_660", name: "PUBG Mobile 660 UC", price: "9.90" }
                     ],
                     "freefire": [
-                        {{"id": "ff_100", "name": "Free Fire 100+10 جواهر", "price": "0.99"}},
-                        {{"id": "ff_210", "name": "Free Fire 210+21 جواهر", "price": "1.98"}}
+                        { id: "ff_100", name: "Free Fire 100+10 جواهر", price: "0.99" },
+                        { id: "ff_210", name: "Free Fire 210+21 جواهر", price: "1.98" }
                     ],
                     "jawaker": [
-                        {{"id": "jw_70", "name": "جواكر 70,000 توكنز", "price": "2.20"}}
+                        { id: "jw_70", name: "جواكر 70,000 توكنز", price: "2.20" }
                     ],
                     "tg_prem": [
-                        {{"id": "tg_1m", "name": "Telegram Premium 1 شهر", "price": "3.95"}}
+                        { id: "tg_1m", name: "Telegram Premium 1 شهر", price: "3.95" }
                     ]
-                }}
-            }};
+                }
+            };
 
-            function contactAdmin() {{
-                tg.openTelegramLink(ADMIN_CHAT);
-            }}
+            function contactAdmin() {
+                tg.openTelegramLink("https://t.me/sayf_admin");
+            }
 
-            async function updateBalanceUI() {{
-                try {{
-                    let res = await fetch('/api/user/balance?user_id=' + currentUserId);
-                    let data = await res.json();
-                    document.getElementById('uBal').innerText = '$ ' + data.balance;
-                }} catch(e) {{}}
-            }}
+            function updateBal() {
+                if(!currentUserId) return;
+                fetch('/api/user/balance?user_id=' + currentUserId)
+                    .then(r => r.json())
+                    .then(d => { document.getElementById('uBal').innerText = '$ ' + d.balance; })
+                    .catch(e => {});
+            }
 
-            function renderHome() {{
+            function renderHome() {
                 currentLevel = 'home';
                 document.getElementById('homeBanner').style.display = 'block';
                 document.getElementById('btnBack').style.display = 'none';
                 document.getElementById('secTitle').innerText = 'تصنيفات المتجر';
-                
-                let container = document.getElementById('viewContainer');
-                container.className = 'cards-layout';
-                container.innerHTML = '';
 
-                LOCAL_DATA.categories.forEach(c => {{
-                    let div = document.createElement('div');
-                    div.className = 'card-wrap';
-                    div.onclick = () => renderSubcategories(c.id, c.name);
-                    div.innerHTML = `
-                        <div class="card-img"><img src="${{c.img}}" alt="${{c.name}}"></div>
-                        <div class="card-name">${{c.name}}</div>
-                    `;
-                    container.appendChild(div);
-                }});
-            }}
+                let c = document.getElementById('viewContainer');
+                c.className = 'cards-layout';
+                c.innerHTML = '';
 
-            function renderSubcategories(catId, catName) {{
+                DB.categories.forEach(item => {
+                    let d = document.createElement('div');
+                    d.className = 'card-wrap';
+                    d.onclick = () => renderSub(item.id, item.name);
+                    d.innerHTML = `<div class="card-icon">${item.icon}</div><div class="card-name">${item.name}</div>`;
+                    c.appendChild(d);
+                });
+            }
+
+            function renderSub(id, name) {
                 currentLevel = 'sub';
-                activeCat = catId;
+                activeCat = id;
                 document.getElementById('homeBanner').style.display = 'none';
                 document.getElementById('btnBack').style.display = 'inline-block';
-                document.getElementById('secTitle').innerText = catName;
+                document.getElementById('secTitle').innerText = name;
 
-                let items = LOCAL_DATA.subcategories[catId] || [];
-                let container = document.getElementById('viewContainer');
-                container.className = 'cards-layout';
-                container.innerHTML = '';
+                let c = document.getElementById('viewContainer');
+                c.className = 'cards-layout';
+                c.innerHTML = '';
 
-                items.forEach(s => {{
-                    let div = document.createElement('div');
-                    div.className = 'card-wrap';
-                    div.onclick = () => renderProducts(s.id, s.name);
-                    div.innerHTML = `
-                        <div class="card-img"><img src="${{s.img}}" alt="${{s.name}}"></div>
-                        <div class="card-name">${{s.name}}</div>
-                    `;
-                    container.appendChild(div);
-                }});
-            }}
+                let items = DB.subcategories[id] || [];
+                items.forEach(item => {
+                    let d = document.createElement('div');
+                    d.className = 'card-wrap';
+                    d.onclick = () => renderProd(item.id, item.name);
+                    d.innerHTML = `<div class="card-icon">${item.icon}</div><div class="card-name">${item.name}</div>`;
+                    c.appendChild(d);
+                });
+            }
 
-            function renderProducts(subId, subName) {{
+            function renderProd(id, name) {
                 currentLevel = 'prod';
                 document.getElementById('btnBack').style.display = 'inline-block';
-                document.getElementById('secTitle').innerText = subName;
+                document.getElementById('secTitle').innerText = name;
 
-                let prods = LOCAL_DATA.products[subId] || [];
-                let container = document.getElementById('viewContainer');
-                container.className = '';
-                container.innerHTML = '';
+                let c = document.getElementById('viewContainer');
+                c.className = '';
+                c.innerHTML = '';
 
-                if (prods.length === 0) {{
-                    container.innerHTML = '<p style="text-align:center; color:#9ca3af; padding:20px;">المزيد من الباقات ستتوفر قريباً...</p>';
-                    return;
-                }}
-
-                prods.forEach(p => {{
-                    let div = document.createElement('div');
-                    div.className = 'product-item';
-                    div.innerHTML = `
+                let prods = DB.products[id] || [];
+                prods.forEach(p => {
+                    let d = document.createElement('div');
+                    d.className = 'product-item';
+                    d.innerHTML = `
                         <div>
-                            <div class="p-name">${{p.name}}</div>
-                            <div class="p-price">${{p.price}} $</div>
+                            <div class="p-name">${p.name}</div>
+                            <div class="p-price">${p.price} $</div>
                         </div>
-                        <button class="btn-buy" onclick="makeOrder('${{p.id}}', '${{p.name}}', '${{p.price}}')">شراء</button>
+                        <button class="btn-buy" onclick="makeOrder('${p.id}', '${p.name}', '${p.price}')">شراء</button>
                     `;
-                    container.appendChild(div);
-                }});
-            }}
+                    c.appendChild(d);
+                });
+            }
 
-            function goBack() {{
-                if (currentLevel === 'prod') {{
-                    renderSubcategories(activeCat, 'العودة للأقسام');
-                }} else if (currentLevel === 'sub') {{
-                    renderHome();
-                }}
-            }}
+            function goBack() {
+                if (currentLevel === 'prod') renderSub(activeCat, 'الأقسام');
+                else if (currentLevel === 'sub') renderHome();
+            }
 
-            function makeOrder(pId, pName, pPrice) {{
-                let pid = prompt(pName + " (" + pPrice + " $)\\nادخل المعرف الخاص بك (Player ID):");
+            function makeOrder(id, name, price) {
+                let pid = prompt(name + " (" + price + " $)\\nادخل المعرف الخاص بك (Player ID):");
                 if (!pid) return;
 
-                fetch('/api/store/order', {{
+                fetch('/api/store/order', {
                     method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{
-                        user_id: currentUserId,
-                        product_id: pId,
-                        product_name: pName,
-                        price: pPrice,
-                        player_id: pid
-                    }})
-                }}).then(r => r.json()).then(res => {{
-                    if (res.status === 'error') {{
-                        alert(res.message);
-                        contactAdmin();
-                    }} else {{
-                        alert(res.message);
-                        updateBalanceUI();
-                    }}
-                }});
-            }}
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: currentUserId, product_id: id, product_name: name, price: price, player_id: pid })
+                }).then(r => r.json()).then(res => {
+                    alert(res.message);
+                    updateBal();
+                });
+            }
 
-            updateBalanceUI();
             renderHome();
+            updateBal();
         </script>
     </body>
     </html>
     """
-    return html
 
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -350,32 +310,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("store.db")
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user.id,))
-    existing = cursor.fetchone()
-
-    if not existing:
+    if not cursor.fetchone():
         cursor.execute("INSERT INTO users (user_id, username, full_name, balance) VALUES (?, ?, ?, 0.0)",
                        (user.id, user.username or "", user.full_name))
         conn.commit()
-        admin_alert = (
-            f"👤 <b>يېڭى خېرىدار كىردى!</b>\n\n"
-            f"🏷 <b>ئىسمى:</b> {user.full_name}\n"
-            f"🆔 <b>User ID:</b> <code>{user.id}</code>\n"
-            f"🔗 <b>Username:</b> @{user.username or 'يوق'}"
-        )
         try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_alert, parse_mode="HTML")
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=f"👤 <b>يېڭى خېرىدار:</b> {user.full_name}\n🆔 ID: <code>{user.id}</code>",
+                parse_mode="HTML"
+            )
         except Exception:
             pass
     conn.close()
 
     render_url = os.getenv("RENDER_EXTERNAL_URL", "https://google.com")
-    keyboard = [
-        [InlineKeyboardButton("⚡ SAYF STORE نى ئېچىش", web_app=WebAppInfo(url=render_url))]
-    ]
+    keyboard = [[InlineKeyboardButton("⚡ SAYF STORE نى ئېچىش", web_app=WebAppInfo(url=render_url))]]
     await update.message.reply_text(
-        f"مرحباً بك {user.first_name} في متجر SAYF STORE الرسمي! ⚡\n"
-        f"المعرف الخاص بك (User ID): <code>{user.id}</code>\n"
-        "اضغط على الزر أدناه لفتح المتجر وشراء ما تحتاجه:",
+        f"مرحباً بك {user.first_name} في متجر SAYF STORE الرسمي! ⚡\nالمعرف: <code>{user.id}</code>",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
@@ -383,20 +335,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-
     try:
-        target_user = int(context.args[0])
+        target = int(context.args[0])
         amount = float(context.args[1])
-        update_user_balance(target_user, amount)
-
-        await update.message.reply_text(f"✅ خېرىدار <code>{target_user}</code> گە ${amount} قوشۇلدى!", parse_mode="HTML")
-        await context.bot.send_message(
-            chat_id=target_user,
-            text=f"🎉 <b>ھېساباتىڭىزغا ${amount} قوشۇلدى!</b>\nھازىرلا دۇكانغا كىرىپ زاكاز بېرەلەيسىز.",
-            parse_mode="HTML"
-        )
+        update_user_balance(target, amount)
+        await update.message.reply_text(f"✅ خېرىدار <code>{target}</code> غا ${amount} قوشۇلدى!", parse_mode="HTML")
     except Exception:
-        await update.message.reply_text("ئىشلىتىش ئۇسۇلى: <code>/add 12345678 10</code>", parse_mode="HTML")
+        await update.message.reply_text("ئىشلىتىش: <code>/add 12345678 10</code>", parse_mode="HTML")
 
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("add", add_balance_cmd))
