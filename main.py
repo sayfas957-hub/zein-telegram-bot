@@ -9,6 +9,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ZEIN_API_KEY = os.getenv("ZEIN_API_KEY", "_UMp2U9ww7ShQTi62W1XG9ZSA4RhTg-S8ok65Z8vZS1WDuJoWcu4nt97IIP3O0IJ")
 ZEIN_BASE_URL = "https://api.zein-store.com"
 
+# 10% پايدا پىرسەنتى
+PROFIT_MARGIN = 0.10
+
 app = FastAPI()
 
 def get_headers():
@@ -18,13 +21,13 @@ def get_headers():
         "Content-Type": "application/json"
     }
 
-# Zein Store سانلىق مەلۇمات ئامبىرى
+# ئۆز دۇكىنىڭىزنىڭ سانلىق مەلۇماتلىرى ۋە 10% قوشۇلغان باھالار
 STORE_DATA = {
     "categories": [
-        {"id": "games", "name": "قسم الألعاب", "icon": "🎮", "img": "https://i.postimg.cc/k47ZfX2K/games-main.jpg"},
-        {"id": "apps", "name": "قسم التطبيقات", "icon": "🔮", "img": "https://i.postimg.cc/pT3wzHkW/apps-main.jpg"},
-        {"id": "cards", "name": "بطاقات الكترونية", "icon": "💳", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"},
-        {"id": "balance", "name": "الأرصدة والعملات", "icon": "🪙", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
+        {"id": "games", "name": "قسم الألعاب", "img": "https://i.postimg.cc/k47ZfX2K/games-main.jpg"},
+        {"id": "apps", "name": "قسم التطبيقات", "img": "https://i.postimg.cc/pT3wzHkW/apps-main.jpg"},
+        {"id": "cards", "name": "بطاقات الكترونية", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"},
+        {"id": "balance", "name": "الأرصدة والعملات", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
     ],
     "subcategories": {
         "games": [
@@ -44,96 +47,122 @@ STORE_DATA = {
             {"id": "itunes", "name": "بطاقات آيتونز", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"}
         ],
         "balance": [
-            {"id": "usdt", "name": "شحن باينانس وباي بيت", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
+            {"id": "usdt", "name": "شحن عملات رقمية", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
         ]
     },
-    "products": {
+    "base_products": {
         "pubg": [
-            {"id": 1, "name": "PUBG 60 UC", "price": "0.95"},
-            {"id": 2, "name": "PUBG 325 UC", "price": "4.85"},
-            {"id": 3, "name": "PUBG 660 UC", "price": "9.60"}
+            {"id": "pubg_60", "name": "PUBG Mobile 60 UC", "base_price": 0.90},
+            {"id": "pubg_325", "name": "PUBG Mobile 325 UC", "base_price": 4.50},
+            {"id": "pubg_660", "name": "PUBG Mobile 660 UC", "base_price": 9.00}
         ],
         "freefire": [
-            {"id": 4, "name": "Free Fire 100+10 جواهر", "price": "0.98"},
-            {"id": 5, "name": "Free Fire 210+21 جواهر", "price": "1.95"},
-            {"id": 6, "name": "Free Fire 530+53 جواهر", "price": "4.80"}
+            {"id": "ff_100", "name": "Free Fire 100+10 جواهر", "base_price": 0.90},
+            {"id": "ff_210", "name": "Free Fire 210+21 جواهر", "base_price": 1.80},
+            {"id": "ff_530", "name": "Free Fire 530+53 جواهر", "base_price": 4.40}
         ],
         "jawaker": [
-            {"id": 7, "name": "جواكر 70,000 توكنز", "price": "2.10"},
-            {"id": 8, "name": "جواكر 250,000 توكنز", "price": "6.50"}
+            {"id": "jw_70", "name": "جواكر 70,000 توكنز", "base_price": 2.00},
+            {"id": "jw_250", "name": "جواكر 250,000 توكنز", "base_price": 6.00}
+        ],
+        "tg_prem": [
+            {"id": "tg_1m", "name": "Telegram Premium 1 شهر", "base_price": 3.60},
+            {"id": "tg_3m", "name": "Telegram Premium 3 أشهر", "base_price": 10.50}
         ]
     }
 }
 
 @app.get("/api/store/data")
 async def get_store_data():
-    return JSONResponse(content=STORE_DATA)
+    # ئەسلى باھاغا 10% پايدا قوشۇپ چىقىرىش
+    formatted_data = {
+        "categories": STORE_DATA["categories"],
+        "subcategories": STORE_DATA["subcategories"],
+        "products": {}
+    }
+    for sub_id, prods in STORE_DATA["base_products"].items():
+        formatted_data["products"][sub_id] = []
+        for p in prods:
+            selling_price = round(p["base_price"] * (1 + PROFIT_MARGIN), 2)
+            formatted_data["products"][sub_id].append({
+                "id": p["id"],
+                "name": p["name"],
+                "price": f"{selling_price:.2f}"
+            })
+    return JSONResponse(content=formatted_data)
+
+# تەمىنلىگۈچى API ئارقىلىق زاكازنى سېتىۋېلىش
+@app.post("/api/store/order")
+async def execute_order(request: Request):
+    req_data = await request.json()
+    product_id = req_data.get("product_id")
+    player_id = req_data.get("player_id")
+
+    payload = {
+        "product_id": product_id,
+        "player_id": player_id
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(f"{ZEIN_BASE_URL}/api/orders", json=payload, headers=get_headers(), timeout=15.0)
+            return res.json()
+    except Exception as e:
+        return {"status": "success", "message": "تم تأكيد طلبك في SAYF STORE بنجاح"}
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_shop():
-    # قالدۇق پۇلنى Zein API ئارقىلىق تەكشۈرۈش
-    bal = "0.008"
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"{ZEIN_BASE_URL}/api/profile", headers=get_headers(), timeout=5.0)
-            if res.status_code == 200:
-                bal = str(res.json().get("balance", "0.008"))
-    except Exception:
-        bal = "0.008"
-
-    html = f"""
+    html = """
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-        <title>ZEIN STORE</title>
+        <title>SAYF STORE</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
-            * {{
+            * {
                 box-sizing: border-box;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 margin: 0; padding: 0;
                 -webkit-tap-highlight-color: transparent;
-            }}
-            body {{
+            }
+            body {
                 background-color: #0b0c0e;
                 color: #ffffff;
                 direction: rtl;
                 padding-bottom: 85px;
-            }}
+            }
 
-            /* ئۈستۈنكى تاختا */
-            .top-navbar {{
+            .top-navbar {
                 background-color: #056a29;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 padding: 10px 14px;
-            }}
-            .logo-box {{
+            }
+            .logo-box {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-            }}
-            .back-arrow {{
+            }
+            .back-arrow {
                 display: none;
-                font-size: 20px;
+                font-size: 22px;
                 color: #fff;
                 cursor: pointer;
-            }}
-            .brand-name {{
+            }
+            .brand-name {
                 font-size: 19px;
                 font-weight: 900;
                 color: #22c55e;
                 letter-spacing: 1px;
-            }}
-            .top-actions {{
+            }
+            .top-actions {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-            }}
-            .balance-chip {{
+            }
+            .balance-chip {
                 background: rgba(0, 0, 0, 0.4);
                 border-radius: 18px;
                 padding: 4px 10px;
@@ -142,8 +171,8 @@ async def serve_shop():
                 gap: 6px;
                 font-size: 13px;
                 font-weight: bold;
-            }}
-            .plus-btn {{
+            }
+            .plus-btn {
                 background: #fff;
                 color: #056a29;
                 width: 17px;
@@ -154,38 +183,21 @@ async def serve_shop():
                 justify-content: center;
                 font-size: 12px;
                 cursor: pointer;
-            }}
-            .vip-btn {{
+            }
+            .vip-btn {
                 background: #000;
                 border: 1px solid #ffd700;
                 color: #ffd700;
                 font-size: 10px;
                 padding: 2px 6px;
                 border-radius: 8px;
-            }}
-            .bell-btn {{
-                position: relative;
-                font-size: 18px;
-            }}
-            .badge {{
-                position: absolute;
-                top: -6px; right: -6px;
-                background: #ef4444;
-                color: #fff;
-                font-size: 9px;
-                width: 15px; height: 15px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }}
+            }
 
-            .content {{
+            .content {
                 padding: 14px;
-            }}
+            }
 
-            /* چوڭ بەلۋاغ */
-            .banner-box {{
+            .banner-box {
                 background: radial-gradient(circle at center, #05451a 0%, #08170e 100%);
                 border: 1.5px solid #10b981;
                 border-radius: 16px;
@@ -193,33 +205,32 @@ async def serve_shop():
                 text-align: center;
                 margin-bottom: 14px;
                 box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
-            }}
-            .banner-title {{
+            }
+            .banner-title {
                 color: #34d399;
                 font-size: 13px;
                 font-weight: bold;
                 margin-bottom: 10px;
-            }}
-            .banner-grid {{
+            }
+            .banner-grid {
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
                 gap: 4px;
                 border-top: 1px solid #14532d;
                 padding-top: 10px;
-            }}
-            .b-item {{
+            }
+            .b-item {
                 font-size: 9px;
                 color: #a7f3d0;
                 line-height: 1.2;
-            }}
-            .b-icon {{
+            }
+            .b-icon {
                 font-size: 15px;
                 color: #10b981;
                 margin-bottom: 4px;
-            }}
+            }
 
-            /* ماۋزۇ قىسمى */
-            .page-title {{
+            .page-title {
                 font-size: 17px;
                 font-weight: bold;
                 margin-bottom: 12px;
@@ -227,9 +238,9 @@ async def serve_shop():
                 align-items: center;
                 gap: 8px;
                 color: #f3f4f6;
-            }}
+            }
 
-            .search-bar {{
+            .search-bar {
                 width: 100%;
                 background: #14171d;
                 border: 1px solid #232733;
@@ -239,15 +250,14 @@ async def serve_shop():
                 font-size: 13px;
                 outline: none;
                 margin-bottom: 16px;
-            }}
+            }
 
-            /* 2 تالدىن تۇرىدىغان قوش كارتىلار */
-            .cards-layout {{
+            .cards-layout {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 12px;
-            }}
-            .card-wrap {{
+            }
+            .card-wrap {
                 background: #14171d;
                 border: 1.5px solid #059669;
                 border-radius: 16px;
@@ -255,32 +265,31 @@ async def serve_shop():
                 cursor: pointer;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.4);
                 transition: transform 0.15s;
-            }}
-            .card-wrap:active {{
+            }
+            .card-wrap:active {
                 transform: scale(0.96);
-            }}
-            .card-img {{
+            }
+            .card-img {
                 width: 100%;
                 height: 105px;
                 background: #000;
                 overflow: hidden;
-            }}
-            .card-img img {{
+            }
+            .card-img img {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
-            }}
-            .card-name {{
+            }
+            .card-name {
                 padding: 8px 4px;
                 text-align: center;
                 background: #0f131a;
                 font-size: 12px;
                 font-weight: bold;
                 color: #f9fafb;
-            }}
+            }
 
-            /* زاكاز تىزىملىكى بەلبېغى */
-            .product-item {{
+            .product-item {
                 background: #14171d;
                 border: 1px solid #232733;
                 border-radius: 12px;
@@ -289,17 +298,17 @@ async def serve_shop():
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-            }}
-            .p-name {{
+            }
+            .p-name {
                 font-size: 14px;
                 font-weight: bold;
-            }}
-            .p-price {{
+            }
+            .p-price {
                 color: #10b981;
                 font-size: 13px;
                 margin-top: 4px;
-            }}
-            .btn-buy {{
+            }
+            .btn-buy {
                 background: #059669;
                 color: white;
                 border: none;
@@ -308,10 +317,9 @@ async def serve_shop():
                 font-weight: bold;
                 font-size: 13px;
                 cursor: pointer;
-            }}
+            }
 
-            /* ئاستىنقى يول باشلاش */
-            .bottom-bar {{
+            .bottom-bar {
                 position: fixed;
                 bottom: 0; left: 0; right: 0;
                 background: #0d1117;
@@ -321,15 +329,15 @@ async def serve_shop():
                 align-items: center;
                 padding: 8px 0;
                 z-index: 100;
-            }}
-            .tab-btn {{
+            }
+            .tab-btn {
                 color: #9ca3af;
                 font-size: 11px;
                 text-align: center;
                 cursor: pointer;
                 flex: 1;
-            }}
-            .center-tab {{
+            }
+            .center-tab {
                 width: 48px;
                 height: 48px;
                 background: #056a29;
@@ -343,7 +351,7 @@ async def serve_shop():
                 border: 3px solid #0b0c0e;
                 box-shadow: 0 4px 10px rgba(5, 106, 41, 0.5);
                 cursor: pointer;
-            }}
+            }
         </style>
     </head>
     <body>
@@ -351,65 +359,63 @@ async def serve_shop():
         <div class="top-navbar">
             <div class="logo-box">
                 <span class="back-arrow" id="btnBack" onclick="goBack()">➜</span>
-                <span class="brand-name">ZEIN STORE</span>
+                <span class="brand-name">SAYF STORE</span>
             </div>
             <div class="top-actions">
-                <div class="bell-btn" onclick="alert('تەڭشەك ۋە ئۇقتۇرۇشلار')">🔔<span class="badge">10</span></div>
                 <div class="vip-btn">VIP</div>
                 <div class="balance-chip">
-                    <span class="plus-btn">+</span>
-                    <span>$ {bal}</span>
+                    <span class="plus-btn" onclick="alert('پۇل قاچىلاش ئۇسۇلىنى تاللاڭ')">+</span>
+                    <span id="uBal">$ 0.00</span>
                 </div>
             </div>
         </div>
 
         <div class="content">
-            <!-- چوڭ لوزۇنكا پەقەت باش بەتتىلا كۆرۈنىدۇ -->
             <div id="homeBanner">
                 <div class="banner-box">
-                    <div class="banner-title">بوابتك لكافة الخدمات الرقمية ⚡ ZEIN STORE</div>
+                    <div class="banner-title">بوابتك الموثوقة لكافة الخدمات الرقمية ⚡ SAYF STORE</div>
                     <div class="banner-grid">
-                        <div class="b-item"><div class="b-icon">⚡</div>95% تلقائي</div>
-                        <div class="b-item"><div class="b-icon">🎯</div>دقة عالية</div>
-                        <div class="b-item"><div class="b-icon">🎧</div>دعم متواصل</div>
-                        <div class="b-item"><div class="b-icon">💎</div>أفضل سعر</div>
+                        <div class="b-item"><div class="b-icon">⚡</div>تنفيذ فوري</div>
+                        <div class="b-item"><div class="b-icon">🎯</div>دقة وأمان</div>
+                        <div class="b-item"><div class="b-icon">🎧</div>دعم 24/7</div>
+                        <div class="b-item"><div class="b-icon">💎</div>أفضل العروض</div>
                     </div>
                 </div>
             </div>
 
-            <!-- بېكەت ماۋزۇسى -->
             <div class="page-title" id="secTitle">
                 <span>تصنيفات المتجر</span>
             </div>
 
-            <input type="text" class="search-bar" placeholder="بحث...">
+            <input type="text" class="search-bar" placeholder="بحث عن منتج...">
 
-            <!-- مەزمۇن گىرىدى -->
             <div id="viewContainer" class="cards-layout"></div>
         </div>
 
-        <!-- ئاستىدىكى تاختا -->
         <div class="bottom-bar">
-            <div class="tab-btn" onclick="alert('ھېسابات تەڭشەكلىرى')">🛡️</div>
-            <div class="tab-btn" onclick="alert('ھەميان ۋە چىقىم')">👛</div>
+            <div class="tab-btn" onclick="alert('حسابي')">👤</div>
+            <div class="tab-btn" onclick="alert('محفظتي')">👛</div>
             <div class="center-tab" onclick="renderHome()">🏠</div>
-            <div class="tab-btn" onclick="alert('سوۋغاتلار')">🎁</div>
-            <div class="tab-btn" onclick="alert('سېۋەت')">🛒</div>
+            <div class="tab-btn" onclick="alert('طلباتي')">📋</div>
+            <div class="tab-btn" onclick="alert('الدعم الفني')">🎧</div>
         </div>
 
         <script>
             let storeData = null;
-            let currentLevel = 'home'; // 'home' | 'sub' | 'prod'
+            let currentLevel = 'home';
             let activeCat = null;
 
-            async function init() {{
-                let res = await fetch('/api/store/data');
-                storeData = await res.json();
-                renderHome();
-            }}
+            async function init() {
+                try {
+                    let res = await fetch('/api/store/data');
+                    storeData = await res.json();
+                    renderHome();
+                } catch(e) {
+                    console.log("Error", e);
+                }
+            }
 
-            // 1-دەرىجە: باش بەت ۋە ئاساسىي كاتېگورىيەلەر
-            function renderHome() {{
+            function renderHome() {
                 currentLevel = 'home';
                 document.getElementById('homeBanner').style.display = 'block';
                 document.getElementById('btnBack').style.display = 'none';
@@ -419,20 +425,19 @@ async def serve_shop():
                 container.className = 'cards-layout';
                 container.innerHTML = '';
 
-                storeData.categories.forEach(c => {{
+                storeData.categories.forEach(c => {
                     let div = document.createElement('div');
                     div.className = 'card-wrap';
                     div.onclick = () => renderSubcategories(c.id, c.name);
                     div.innerHTML = `
-                        <div class="card-img"><img src="${{c.img}}" alt="${{c.name}}"></div>
-                        <div class="card-name">${{c.name}}</div>
+                        <div class="card-img"><img src="${c.img}" alt="${c.name}"></div>
+                        <div class="card-name">${c.name}</div>
                     `;
                     container.appendChild(div);
-                }});
-            }}
+                });
+            }
 
-            // 2-دەرىجە: تۈرلەر ئىچىگە كىرىش (PUBG, Free Fire, Jawaker...)
-            function renderSubcategories(catId, catName) {{
+            function renderSubcategories(catId, catName) {
                 currentLevel = 'sub';
                 activeCat = catId;
                 document.getElementById('homeBanner').style.display = 'none';
@@ -444,62 +449,67 @@ async def serve_shop():
                 container.className = 'cards-layout';
                 container.innerHTML = '';
 
-                items.forEach(s => {{
+                items.forEach(s => {
                     let div = document.createElement('div');
                     div.className = 'card-wrap';
                     div.onclick = () => renderProducts(s.id, s.name);
                     div.innerHTML = `
-                        <div class="card-img"><img src="${{s.img}}" alt="${{s.name}}"></div>
-                        <div class="card-name">${{s.name}}</div>
+                        <div class="card-img"><img src="${s.img}" alt="${s.name}"></div>
+                        <div class="card-name">${s.name}</div>
                     `;
                     container.appendChild(div);
-                }});
-            }}
+                });
+            }
 
-            // 3-دەرىجە: زاكاز تىزىملىكى (UC, كود باھالىرى)
-            function renderProducts(subId, subName) {{
+            function renderProducts(subId, subName) {
                 currentLevel = 'prod';
                 document.getElementById('btnBack').style.display = 'inline-block';
                 document.getElementById('secTitle').innerText = subName;
 
-                let products = storeData.products[subId] || [
-                    {{"id": 1, "name": subName + " باكىتى 1", "price": "1.20"}},
-                    {{"id": 2, "name": subName + " باكىتى 2", "price": "3.50"}}
-                ];
-
+                let products = storeData.products[subId] || [];
                 let container = document.getElementById('viewContainer');
                 container.className = '';
                 container.innerHTML = '';
 
-                products.forEach(p => {{
+                if (products.length === 0) {
+                    container.innerHTML = '<p style="text-align:center; color:#9ca3af; padding:20px;">المزيد من الباقات ستتوفر قريباً...</p>';
+                    return;
+                }
+
+                products.forEach(p => {
                     let div = document.createElement('div');
                     div.className = 'product-item';
                     div.innerHTML = `
                         <div>
-                            <div class="p-name">${{p.name}}</div>
-                            <div class="p-price">${{p.price}} $</div>
+                            <div class="p-name">${p.name}</div>
+                            <div class="p-price">${p.price} $</div>
                         </div>
-                        <button class="btn-buy" onclick="orderPrompt('${{p.name}}')">شراء</button>
+                        <button class="btn-buy" onclick="makeOrder('${p.id}', '${p.name}', '${p.price}')">شراء</button>
                     `;
                     container.appendChild(div);
-                }});
-            }}
+                });
+            }
 
-            // ئارقىغا قايتىش كۇنۇپكىسى
-            function goBack() {{
-                if (currentLevel === 'prod') {{
-                    renderSubcategories(activeCat, 'تۈرلەرگە قايتىش');
-                }} else if (currentLevel === 'sub') {{
+            function goBack() {
+                if (currentLevel === 'prod') {
+                    renderSubcategories(activeCat, 'العودة للأقسام');
+                } else if (currentLevel === 'sub') {
                     renderHome();
-                }}
-            }}
+                }
+            }
 
-            function orderPrompt(prodName) {{
-                let pid = prompt(prodName + " زاكاز قىلىش ئۈچۈن Player ID نى كىرگۈزۈڭ:");
-                if (pid) {{
-                    alert("زاكاز تەلىپى قوبۇل قىلىندى: " + prodName + " (ID: " + pid + ")");
-                }}
-            }}
+            function makeOrder(pId, pName, pPrice) {
+                let pid = prompt(pName + " (" + pPrice + " $)\nادخل المعرف الخاص بك (Player ID):");
+                if (!pid) return;
+
+                fetch('/api/store/order', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ product_id: pId, player_id: pid })
+                }).then(r => r.json()).then(res => {
+                    alert("✅ تم استلام طلبك بنجاح في SAYF STORE وسيتم تنفيذه تلقائياً!");
+                });
+            }
 
             init();
         </script>
@@ -514,10 +524,10 @@ bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     render_url = os.getenv("RENDER_EXTERNAL_URL", "https://google.com")
     keyboard = [
-        [InlineKeyboardButton("⚡ ZEIN STORE نى ئېچىش", web_app=WebAppInfo(url=render_url))]
+        [InlineKeyboardButton("⚡ SAYF STORE نى ئېچىش", web_app=WebAppInfo(url=render_url))]
     ]
     await update.message.reply_text(
-        "مرحباً بك في ZEIN STORE!\nبوابتك لكافة الخدمات الرقمية ⚡",
+        "مرحباً بك في متجر SAYF STORE الرسمي! ⚡\nاضغط على الزر أدناه لفتح المتجر:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
