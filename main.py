@@ -18,7 +18,6 @@ def get_headers():
         "Content-Type": "application/json"
     }
 
-# Zein Store دىن كاتېگورىيەلەر ۋە تۈرلەرنى ئېلىش API سى
 @app.get("/api/categories")
 async def get_categories():
     try:
@@ -28,7 +27,6 @@ async def get_categories():
                 return res.json()
     except Exception:
         pass
-    # ئەگەر تور ئاستا بولسا دەسلەپكى زاپاس رەسىملىك تۈرلەر
     return {
         "data": [
             {"id": 1, "name": "العاب", "image": "https://cdn-icons-png.flaticon.com/512/686/686589.png"},
@@ -46,7 +44,11 @@ async def get_categories():
         ]
     }
 
-# خېرىدارلار كۆرىدىغان MaxStore پۈتۈن كۆرۈنمە يۈزى
+@app.post("/api/order")
+async def place_order(data: dict):
+    # خېرىدار زاكاز قىلغاندا ئىشلەيدىغان زاكاز قىسمى
+    return {"status": "success", "message": "تم استلام الطلب بنجاح"}
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_shop():
     balance_text = "0.00"
@@ -73,15 +75,14 @@ async def serve_shop():
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 margin: 0;
                 padding: 0;
+                -webkit-tap-highlight-color: transparent;
             }}
             body {{
                 background-color: #0b0f19;
                 color: #ffffff;
                 padding: 12px 14px 75px 14px;
                 direction: rtl;
-                overflow-x: hidden;
             }}
-            /* يۇقىرىقى بالداق ۋە قالدۇق */
             .top-bar {{
                 display: flex;
                 align-items: center;
@@ -149,8 +150,6 @@ async def serve_shop():
                 align-items: center;
                 justify-content: center;
             }}
-
-            /* ئىزدەش كۆزنىكى */
             .search-container {{
                 margin-bottom: 18px;
             }}
@@ -165,8 +164,6 @@ async def serve_shop():
                 outline: none;
                 text-align: right;
             }}
-
-            /* ماۋزۇ قىسمى */
             .section-header {{
                 display: flex;
                 justify-content: space-between;
@@ -191,8 +188,6 @@ async def serve_shop():
                 font-size: 13px;
                 font-weight: bold;
             }}
-
-            /* كارتىلار گىرىد قۇرۇلمىسى (4 تالدىن) */
             .categories-grid {{
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
@@ -209,17 +204,17 @@ async def serve_shop():
                 aspect-ratio: 1;
                 background: #131926;
                 border: 1.5px solid #232d42;
-                border-radius: 22px;
+                border-radius: 20px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                padding: 10px;
+                padding: 8px;
                 box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-                transition: transform 0.15s, border-color 0.2s;
             }}
             .card-visual:active {{
                 transform: scale(0.92);
                 border-color: #4f46e5;
+                background: #1e293b;
             }}
             .card-visual img {{
                 width: 100%;
@@ -237,41 +232,63 @@ async def serve_shop():
                 text-overflow: ellipsis;
                 width: 100%;
             }}
-
-            /* ئاستىنقى بالداق (Bottom Bar) */
-            .bottom-nav {{
+            /* زاكاز قىلىش سۈزۈلمە كۆزنىكى (Modal) */
+            .order-modal {{
+                display: none;
                 position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: #0f1422;
-                border-top: 1px solid #1e2638;
-                display: flex;
-                justify-content: space-around;
-                padding: 8px 0;
-                z-index: 100;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.75);
+                z-index: 999;
+                align-items: flex-end;
+                justify-content: center;
             }}
-            .nav-item {{
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 3px;
-                color: #64748b;
-                font-size: 10px;
-                text-decoration: none;
+            .modal-content {{
+                background: #131926;
+                width: 100%;
+                border-radius: 24px 24px 0 0;
+                padding: 20px 16px;
+                border-top: 1px solid #232d42;
             }}
-            .nav-item.active {{
-                color: #4f46e5;
+            .modal-title {{
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 12px;
+                color: #38bdf8;
             }}
-            .nav-item svg {{
-                width: 20px;
-                height: 20px;
-                fill: currentColor;
+            .input-id {{
+                width: 100%;
+                padding: 12px;
+                background: #0b0f19;
+                border: 1px solid #334155;
+                border-radius: 12px;
+                color: white;
+                margin-bottom: 14px;
+                outline: none;
+                font-size: 14px;
+            }}
+            .submit-btn {{
+                width: 100%;
+                background: #4f46e5;
+                color: white;
+                padding: 12px;
+                border: none;
+                border-radius: 12px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-bottom: 8px;
+            }}
+            .cancel-btn {{
+                width: 100%;
+                background: #1e293b;
+                color: #94a3b8;
+                padding: 10px;
+                border: none;
+                border-radius: 12px;
+                cursor: pointer;
             }}
         </style>
     </head>
     <body>
-        <!-- ئۈستۈنكى بالداق -->
         <div class="top-bar">
             <div class="balance-box">
                 <span class="plus-btn">+</span>
@@ -280,20 +297,15 @@ async def serve_shop():
             </div>
             <div class="actions-box">
                 <div class="icon-btn">⚙️</div>
-                <div class="icon-btn">
-                    🔔
-                    <span class="badge">1</span>
-                </div>
+                <div class="icon-btn">🔔<span class="badge">1</span></div>
                 <div class="icon-btn">💲</div>
             </div>
         </div>
 
-        <!-- ئىزدەش كۆزنىكى -->
         <div class="search-container">
             <input type="text" class="search-input" placeholder="ابحث عن منتج...">
         </div>
 
-        <!-- ماۋزۇ -->
         <div class="section-header">
             <div class="section-title">
                 <span class="bar-mark"></span>
@@ -302,38 +314,49 @@ async def serve_shop():
             <span class="category-count" id="catCount">12</span>
         </div>
 
-        <!-- مەھسۇلات كاتېگورىيەلىرى -->
-        <div class="categories-grid" id="catGrid">
-            <!-- كود ئارقىلىق بۇ يەرگە ئاپتوماتىك قاچىلىنىدۇ -->
-        </div>
+        <div class="categories-grid" id="catGrid"></div>
 
-        <!-- ئاستىنقى يول باشلاش بالدىقى -->
-        <div class="bottom-nav">
-            <div class="nav-item active">
-                <span>🏠</span>
-                <span>الرئيسية</span>
-            </div>
-            <div class="nav-item">
-                <span>📋</span>
-                <span>طلباتي</span>
-            </div>
-            <div class="nav-item">
-                <span>⚡</span>
-                <span>الشحن</span>
-            </div>
-            <div class="nav-item">
-                <span>💳</span>
-                <span>الإيداعات</span>
-            </div>
-            <div class="nav-item">
-                <span>👤</span>
-                <span>حسابي</span>
+        <!-- سۈزۈلمە زاكاز كۆزنىكى -->
+        <div class="order-modal" id="orderModal">
+            <div class="modal-content">
+                <div class="modal-title" id="mTitle">زاكاز قىلىش</div>
+                <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">ID ياكى ئالاقە نومۇرىڭىزنى كىرگۈزۈڭ:</p>
+                <input type="text" class="input-id" id="playerId" placeholder="Player ID / Account ID">
+                <button class="submit-btn" onclick="confirmOrder()">زاكازنى جەزملەش</button>
+                <button class="cancel-btn" onclick="closeModal()">بىكار قىلىش</button>
             </div>
         </div>
 
         <script>
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+
+            let selectedCategory = "";
+
+            function openModal(name) {{
+                selectedCategory = name;
+                document.getElementById('mTitle').innerText = name + " - طلب جديد";
+                document.getElementById('orderModal').style.display = 'flex';
+            }}
+
+            function closeModal() {{
+                document.getElementById('orderModal').style.display = 'none';
+            }}
+
+            function confirmOrder() {{
+                let pid = document.getElementById('playerId').value;
+                if (!pid) {{
+                    alert("ID نى كىرگۈزۈڭ!");
+                    return;
+                }}
+                closeModal();
+                tg.sendData(JSON.stringify({{
+                    category: selectedCategory,
+                    player_id: pid
+                }}));
+                if (tg.close) tg.close();
+            }}
 
             async function loadCategories() {{
                 try {{
@@ -348,8 +371,8 @@ async def serve_shop():
                     items.forEach(item => {{
                         let div = document.createElement('div');
                         div.className = 'category-card';
-                        div.onclick = () => {{
-                            alert(item.name + " تاللاندى! تېلېگرام بوت ئارقىلىق زاكاز چىقىرىلىدۇ.");
+                        div.onclick = function() {{
+                            openModal(item.name);
                         }};
                         div.innerHTML = `
                             <div class="card-visual">
@@ -360,7 +383,7 @@ async def serve_shop():
                         grid.appendChild(div);
                     }});
                 }} catch (e) {{
-                    console.log("Error loading categories", e);
+                    console.log("Error loading", e);
                 }}
             }}
             loadCategories();
@@ -370,7 +393,7 @@ async def serve_shop():
     """
     return html_content
 
-# تېلېگرام بىلەن ئالاقىلىشىش قىسمى
+# تېلېگرام قىسمى
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -379,7 +402,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🛍 دۇكاننى ئېچىش", web_app=WebAppInfo(url=render_url))]
     ]
     await update.message.reply_text(
-        "MaxStore غا كەلگىنىڭىزنى قارشى ئالىمىز!\nدۇكاننى ئېچىش ئۈچۈن تۆۋەندىكى كۇنۇپكىنى بېسىڭ:",
+        "MaxStore غا كەلگىنىڭىزنى قارشى ئالىمىز!\nتۆۋەندىكى كۇنۇپكىنى بېسىڭ:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
