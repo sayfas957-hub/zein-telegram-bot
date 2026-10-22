@@ -18,76 +18,70 @@ def get_headers():
         "Content-Type": "application/json"
     }
 
-# 1. Zein Store نىڭ رەسمىي قالدۇق پۇلىنى ئېلىش
-@app.get("/api/user/balance")
-async def get_balance():
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"{ZEIN_BASE_URL}/api/profile", headers=get_headers(), timeout=7.0)
-            if res.status_code == 200:
-                data = res.json()
-                return {"balance": str(data.get("balance", "0.008"))}
-    except Exception:
-        pass
-    return {"balance": "0.008"}
-
-# 2. Zein Store دىن بارلىق تۈر، رەسىم ۋە بۆلەكلەرنى بىۋاسىتە تارتىش
-@app.get("/api/store/categories")
-async def get_categories():
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"{ZEIN_BASE_URL}/api/categories", headers=get_headers(), timeout=10.0)
-            if res.status_code == 200:
-                return res.json()
-    except Exception:
-        pass
-    # Zein Store كۆرۈنمە يۈزىدىكى 12 دانە رەسمىي نېئون ئۇسلۇبتىكى بۆلەك
-    return {
-        "data": [
-            {"id": 1, "name": "قسم الألعاب", "icon": "🎮", "image": "https://i.ibb.co/3s6qCgW/games.jpg"},
-            {"id": 2, "name": "قسم التطبيقات", "icon": "🔮", "image": "https://i.ibb.co/6y4f4yP/apps.jpg"},
-            {"id": 3, "name": "بطاقات الكترونية", "icon": "💳", "image": "https://i.ibb.co/L5X5vM0/cards.jpg"},
-            {"id": 4, "name": "الأرصدة والعملات", "icon": "🪙", "image": "https://i.ibb.co/wJvCg0b/balance.jpg"},
-            {"id": 5, "name": "خدمات تيليجرام", "icon": "⭐", "image": "https://i.ibb.co/6y4f4yP/apps.jpg"},
-            {"id": 6, "name": "سوشل ميديا", "icon": "📱", "image": "https://i.ibb.co/3s6qCgW/games.jpg"},
-            {"id": 7, "name": "الإشتراكات والحسابات", "icon": "🔐", "image": "https://i.ibb.co/L5X5vM0/cards.jpg"},
-            {"id": 8, "name": "خدمات سوفتوير", "icon": "💻", "image": "https://i.ibb.co/wJvCg0b/balance.jpg"}
+# Zein Store سانلىق مەلۇمات ئامبىرى
+STORE_DATA = {
+    "categories": [
+        {"id": "games", "name": "قسم الألعاب", "icon": "🎮", "img": "https://i.postimg.cc/k47ZfX2K/games-main.jpg"},
+        {"id": "apps", "name": "قسم التطبيقات", "icon": "🔮", "img": "https://i.postimg.cc/pT3wzHkW/apps-main.jpg"},
+        {"id": "cards", "name": "بطاقات الكترونية", "icon": "💳", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"},
+        {"id": "balance", "name": "الأرصدة والعملات", "icon": "🪙", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
+    ],
+    "subcategories": {
+        "games": [
+            {"id": "pubg", "name": "قسم ببجي", "img": "https://i.postimg.cc/8PjM3LWy/pubg.jpg"},
+            {"id": "freefire", "name": "قسم فري فاير", "img": "https://i.postimg.cc/G307N1sP/freefire.jpg"},
+            {"id": "mlbb", "name": "موبايل ليجند", "img": "https://i.postimg.cc/52M6vJ61/mlbb.jpg"},
+            {"id": "jawaker", "name": "قسم جواكر", "img": "https://i.postimg.cc/9FmH9xJz/jawaker.jpg"},
+            {"id": "8ball", "name": "8BALL POOL", "img": "https://i.postimg.cc/SKM4t2wL/8ball.jpg"},
+            {"id": "fcmobile", "name": "FCMobile", "img": "https://i.postimg.cc/44k4xH8t/fcmobile.jpg"}
+        ],
+        "apps": [
+            {"id": "tg_prem", "name": "تيليجرام بريميوم", "img": "https://i.postimg.cc/pT3wzHkW/apps-main.jpg"},
+            {"id": "tiktok", "name": "عملات تيك توك", "img": "https://i.postimg.cc/pT3wzHkW/apps-main.jpg"}
+        ],
+        "cards": [
+            {"id": "google", "name": "بطاقات جوجل بلاي", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"},
+            {"id": "itunes", "name": "بطاقات آيتونز", "img": "https://i.postimg.cc/85zK2hB1/cards-main.jpg"}
+        ],
+        "balance": [
+            {"id": "usdt", "name": "شحن باينانس وباي بيت", "img": "https://i.postimg.cc/Pq03zGg8/balance-main.jpg"}
+        ]
+    },
+    "products": {
+        "pubg": [
+            {"id": 1, "name": "PUBG 60 UC", "price": "0.95"},
+            {"id": 2, "name": "PUBG 325 UC", "price": "4.85"},
+            {"id": 3, "name": "PUBG 660 UC", "price": "9.60"}
+        ],
+        "freefire": [
+            {"id": 4, "name": "Free Fire 100+10 جواهر", "price": "0.98"},
+            {"id": 5, "name": "Free Fire 210+21 جواهر", "price": "1.95"},
+            {"id": 6, "name": "Free Fire 530+53 جواهر", "price": "4.80"}
+        ],
+        "jawaker": [
+            {"id": 7, "name": "جواكر 70,000 توكنز", "price": "2.10"},
+            {"id": 8, "name": "جواكر 250,000 توكنز", "price": "6.50"}
         ]
     }
+}
 
-# 3. بىرەر تۈرنى باسقاندا مەھسۇلاتلارنى ئېلىش API سى
-@app.get("/api/store/products/{cat_id}")
-async def get_products(cat_id: int):
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"{ZEIN_BASE_URL}/api/products?category_id={cat_id}", headers=get_headers(), timeout=10.0)
-            if res.status_code == 200:
-                return res.json()
-    except Exception:
-        pass
-    return {
-        "data": [
-            {"id": 101, "name": "PUBG Mobile 60 UC", "price": "0.95"},
-            {"id": 102, "name": "PUBG Mobile 325 UC", "price": "4.85"},
-            {"id": 103, "name": "Free Fire 100+10 كارتىسى", "price": "0.98"},
-            {"id": 104, "name": "Telegram Premium 1 شهر", "price": "3.80"}
-        ]
-    }
+@app.get("/api/store/data")
+async def get_store_data():
+    return JSONResponse(content=STORE_DATA)
 
-# 4. Zein Store غا زاكاز ئەۋەتىش
-@app.post("/api/store/order")
-async def place_order(data: dict):
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.post(f"{ZEIN_BASE_URL}/api/orders", json=data, headers=get_headers(), timeout=15.0)
-            return res.json()
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-# 5. پۈتۈن Zein Store كۆرۈنمە يۈزى
 @app.get("/", response_class=HTMLResponse)
 async def serve_shop():
-    html_content = """
+    # قالدۇق پۇلنى Zein API ئارقىلىق تەكشۈرۈش
+    bal = "0.008"
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(f"{ZEIN_BASE_URL}/api/profile", headers=get_headers(), timeout=5.0)
+            if res.status_code == 200:
+                bal = str(res.json().get("balance", "0.008"))
+    except Exception:
+        bal = "0.008"
+
+    html = f"""
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
@@ -96,226 +90,249 @@ async def serve_shop():
         <title>ZEIN STORE</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
-            * {
+            * {{
                 box-sizing: border-box;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                margin: 0;
-                padding: 0;
+                margin: 0; padding: 0;
                 -webkit-tap-highlight-color: transparent;
-            }
-            body {
-                background-color: #0c0e12;
+            }}
+            body {{
+                background-color: #0b0c0e;
                 color: #ffffff;
                 direction: rtl;
-                padding-bottom: 90px;
-            }
-            /* ئۈستۈنكى يېشىل بەلۋاغ */
-            .navbar {
-                background: linear-gradient(90deg, #045a22 0%, #067a2f 100%);
+                padding-bottom: 85px;
+            }}
+
+            /* ئۈستۈنكى تاختا */
+            .top-navbar {{
+                background-color: #056a29;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 padding: 10px 14px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            }
-            .brand {
+            }}
+            .logo-box {{
                 display: flex;
                 align-items: center;
-                gap: 6px;
-            }
-            .brand-title {
+                gap: 8px;
+            }}
+            .back-arrow {{
+                display: none;
                 font-size: 20px;
+                color: #fff;
+                cursor: pointer;
+            }}
+            .brand-name {{
+                font-size: 19px;
                 font-weight: 900;
                 color: #22c55e;
                 letter-spacing: 1px;
-                text-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
-            }
-            .nav-right {
+            }}
+            .top-actions {{
                 display: flex;
                 align-items: center;
-                gap: 10px;
-            }
-            .balance-btn {
-                background: rgba(0, 0, 0, 0.45);
-                border: 1px solid rgba(34, 197, 94, 0.4);
-                border-radius: 20px;
+                gap: 8px;
+            }}
+            .balance-chip {{
+                background: rgba(0, 0, 0, 0.4);
+                border-radius: 18px;
                 padding: 4px 10px;
                 display: flex;
                 align-items: center;
                 gap: 6px;
                 font-size: 13px;
                 font-weight: bold;
-            }
-            .balance-btn span.plus {
+            }}
+            .plus-btn {{
                 background: #fff;
-                color: #045a22;
+                color: #056a29;
                 width: 17px;
                 height: 17px;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 13px;
-            }
-            .vip-tag {
+                font-size: 12px;
+                cursor: pointer;
+            }}
+            .vip-btn {{
                 background: #000;
-                border: 1px solid #eab308;
-                color: #eab308;
+                border: 1px solid #ffd700;
+                color: #ffd700;
                 font-size: 10px;
-                font-weight: bold;
                 padding: 2px 6px;
-                border-radius: 10px;
-            }
-            .bell-btn {
+                border-radius: 8px;
+            }}
+            .bell-btn {{
                 position: relative;
                 font-size: 18px;
-            }
-            .bell-count {
+            }}
+            .badge {{
                 position: absolute;
-                top: -5px;
-                right: -5px;
+                top: -6px; right: -6px;
                 background: #ef4444;
-                color: white;
+                color: #fff;
                 font-size: 9px;
-                width: 15px;
-                height: 15px;
+                width: 15px; height: 15px;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-weight: bold;
-            }
+            }}
 
-            .main-content {
+            .content {{
                 padding: 14px;
-            }
+            }}
 
-            /* چوڭ نېئون بەلبېغى (Banner) */
-            .hero-banner {
-                background: radial-gradient(circle at center, #054118 0%, #0c1510 100%);
-                border: 1.5px solid #22c55e;
+            /* چوڭ بەلۋاغ */
+            .banner-box {{
+                background: radial-gradient(circle at center, #05451a 0%, #08170e 100%);
+                border: 1.5px solid #10b981;
                 border-radius: 16px;
-                padding: 14px 10px;
-                margin-bottom: 12px;
-                box-shadow: 0 0 16px rgba(34, 197, 94, 0.25);
+                padding: 14px;
                 text-align: center;
-            }
-            .hero-title {
-                color: #4ade80;
+                margin-bottom: 14px;
+                box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+            }}
+            .banner-title {{
+                color: #34d399;
                 font-size: 13px;
-                font-weight: 800;
+                font-weight: bold;
                 margin-bottom: 10px;
-            }
-            .hero-grid {
+            }}
+            .banner-grid {{
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
                 gap: 4px;
                 border-top: 1px solid #14532d;
                 padding-top: 10px;
-            }
-            .hero-item {
+            }}
+            .b-item {{
                 font-size: 9px;
-                color: #bbf7d0;
-                line-height: 1.3;
-            }
-            .hero-icon {
+                color: #a7f3d0;
+                line-height: 1.2;
+            }}
+            .b-icon {{
                 font-size: 15px;
-                margin-bottom: 3px;
-                color: #22c55e;
-            }
+                color: #10b981;
+                margin-bottom: 4px;
+            }}
 
-            /* سىيرىلىپ ماڭىدىغان خەت */
-            .news-ticker {
-                font-size: 11px;
-                color: #94a3b8;
-                white-space: nowrap;
-                overflow: hidden;
-                margin-bottom: 14px;
-                padding: 0 4px;
-            }
+            /* ماۋزۇ قىسمى */
+            .page-title {{
+                font-size: 17px;
+                font-weight: bold;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #f3f4f6;
+            }}
 
-            /* ئىزدەش كۆزنىكى */
-            .search-input {
+            .search-bar {{
                 width: 100%;
-                background: #141820;
-                border: 1px solid #222a38;
-                border-radius: 25px;
+                background: #14171d;
+                border: 1px solid #232733;
+                border-radius: 22px;
                 padding: 10px 16px;
                 color: white;
                 font-size: 13px;
                 outline: none;
                 margin-bottom: 16px;
-            }
+            }}
 
             /* 2 تالدىن تۇرىدىغان قوش كارتىلار */
-            .categories-container {
+            .cards-layout {{
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 12px;
-            }
-            .zein-card {
-                background: #141820;
-                border: 1px solid #22c55e;
+            }}
+            .card-wrap {{
+                background: #14171d;
+                border: 1.5px solid #059669;
                 border-radius: 16px;
                 overflow: hidden;
                 cursor: pointer;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-                transition: transform 0.15s ease, border-color 0.2s ease;
-            }
-            .zein-card:active {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                transition: transform 0.15s;
+            }}
+            .card-wrap:active {{
                 transform: scale(0.96);
-                border-color: #86efac;
-            }
-            .zein-card-img {
+            }}
+            .card-img {{
                 width: 100%;
-                height: 100px;
-                background: #0a0d13;
+                height: 105px;
+                background: #000;
                 overflow: hidden;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .zein-card-img img {
+            }}
+            .card-img img {{
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
-            }
-            .zein-card-footer {
-                padding: 8px 6px;
+            }}
+            .card-name {{
+                padding: 8px 4px;
                 text-align: center;
                 background: #0f131a;
                 font-size: 12px;
                 font-weight: bold;
-                color: #f1f5f9;
-            }
+                color: #f9fafb;
+            }}
 
-            /* ئاستىنقى باشقۇرۇش بالدىقى */
-            .dock {
+            /* زاكاز تىزىملىكى بەلبېغى */
+            .product-item {{
+                background: #14171d;
+                border: 1px solid #232733;
+                border-radius: 12px;
+                padding: 12px 14px;
+                margin-bottom: 10px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            .p-name {{
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            .p-price {{
+                color: #10b981;
+                font-size: 13px;
+                margin-top: 4px;
+            }}
+            .btn-buy {{
+                background: #059669;
+                color: white;
+                border: none;
+                padding: 8px 18px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 13px;
+                cursor: pointer;
+            }}
+
+            /* ئاستىنقى يول باشلاش */
+            .bottom-bar {{
                 position: fixed;
                 bottom: 0; left: 0; right: 0;
-                background: #090c10;
-                border-top: 1px solid #1e2633;
+                background: #0d1117;
+                border-top: 1px solid #1f2937;
                 display: flex;
                 justify-content: space-around;
                 align-items: center;
                 padding: 8px 0;
                 z-index: 100;
-            }
-            .dock-btn {
-                color: #64748b;
-                text-align: center;
+            }}
+            .tab-btn {{
+                color: #9ca3af;
                 font-size: 11px;
-                flex: 1;
+                text-align: center;
                 cursor: pointer;
-            }
-            .dock-btn.active {
-                color: #22c55e;
-            }
-            .dock-center {
+                flex: 1;
+            }}
+            .center-tab {{
                 width: 48px;
                 height: 48px;
-                background: #045a22;
-                border: 3px solid #090c10;
+                background: #056a29;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
@@ -323,204 +340,175 @@ async def serve_shop():
                 color: white;
                 font-size: 20px;
                 margin-top: -24px;
-                box-shadow: 0 0 10px rgba(4, 90, 34, 0.6);
-            }
-
-            /* مەھسۇلات كۆرسىتىش ۋە زاكاز Modal */
-            .modal-overlay {
-                display: none;
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.85);
-                z-index: 999;
-                align-items: flex-end;
-                justify-content: center;
-            }
-            .modal-sheet {
-                background: #141820;
-                width: 100%;
-                border-radius: 20px 20px 0 0;
-                border-top: 2px solid #22c55e;
-                padding: 20px 16px;
-                max-height: 80vh;
-                overflow-y: auto;
-            }
-            .product-row {
-                background: #0d1016;
-                border: 1px solid #222a38;
-                border-radius: 12px;
-                padding: 12px;
-                margin-bottom: 10px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .btn-order {
-                background: #045a22;
-                border: 1px solid #22c55e;
-                color: white;
-                padding: 6px 14px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 12px;
+                border: 3px solid #0b0c0e;
+                box-shadow: 0 4px 10px rgba(5, 106, 41, 0.5);
                 cursor: pointer;
-            }
+            }}
         </style>
     </head>
     <body>
 
-        <!-- ئەسلى يېشىل بەلۋاغ -->
-        <div class="navbar">
-            <div class="brand">
-                <span class="brand-title">ZEIN</span>
-                <span style="font-size: 10px; color: #bbf7d0; font-weight: bold;">STORE</span>
+        <div class="top-navbar">
+            <div class="logo-box">
+                <span class="back-arrow" id="btnBack" onclick="goBack()">➜</span>
+                <span class="brand-name">ZEIN STORE</span>
             </div>
-            <div class="nav-right">
-                <div class="bell-btn">
-                    🔔<span class="bell-count">10</span>
+            <div class="top-actions">
+                <div class="bell-btn" onclick="alert('تەڭشەك ۋە ئۇقتۇرۇشلار')">🔔<span class="badge">10</span></div>
+                <div class="vip-btn">VIP</div>
+                <div class="balance-chip">
+                    <span class="plus-btn">+</span>
+                    <span>$ {bal}</span>
                 </div>
-                <div class="vip-tag">VIP</div>
-                <div class="balance-btn">
-                    <span class="plus">+</span>
-                    <span id="uBalance">$ 0.008</span>
-                </div>
-                <span style="font-size: 20px; cursor: pointer;">☰</span>
             </div>
         </div>
 
-        <div class="main-content">
-            <!-- بوابتك لكافة الخدمات بەلبېغى -->
-            <div class="hero-banner">
-                <div class="hero-title">متجرنا الإلكتروني بوابتك لكافة الخدمات الرقمية ⚡</div>
-                <div class="hero-grid">
-                    <div class="hero-item"><div class="hero-icon">⚡</div>95% من المنتجات تُنفّذ تلقائياً</div>
-                    <div class="hero-item"><div class="hero-icon">🎯</div>دقة عالية في العمل</div>
-                    <div class="hero-item"><div class="hero-icon">🎧</div>دعم فني متواصل</div>
-                    <div class="hero-item"><div class="hero-icon">💎</div>أسعار مناسبة ومميزة</div>
+        <div class="content">
+            <!-- چوڭ لوزۇنكا پەقەت باش بەتتىلا كۆرۈنىدۇ -->
+            <div id="homeBanner">
+                <div class="banner-box">
+                    <div class="banner-title">بوابتك لكافة الخدمات الرقمية ⚡ ZEIN STORE</div>
+                    <div class="banner-grid">
+                        <div class="b-item"><div class="b-icon">⚡</div>95% تلقائي</div>
+                        <div class="b-item"><div class="b-icon">🎯</div>دقة عالية</div>
+                        <div class="b-item"><div class="b-icon">🎧</div>دعم متواصل</div>
+                        <div class="b-item"><div class="b-icon">💎</div>أفضل سعر</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- مېڭىۋاتقان ئۇچۇر سىزىقى -->
-            <div class="news-ticker">
-                الخدمات الرقمية "سريع_آمن_موثوق" في حال كنت تاجر تواصل معنا للحصول على أسعار الجملة...
+            <!-- بېكەت ماۋزۇسى -->
+            <div class="page-title" id="secTitle">
+                <span>تصنيفات المتجر</span>
             </div>
 
-            <input type="text" class="search-input" placeholder="بحث...">
+            <input type="text" class="search-bar" placeholder="بحث...">
 
-            <!-- دەل زەيىننىڭ 2 تالدىن تۇرىدىغان قوش قۇرۇلمىسى -->
-            <div class="categories-container" id="catsList"></div>
+            <!-- مەزمۇن گىرىدى -->
+            <div id="viewContainer" class="cards-layout"></div>
         </div>
 
         <!-- ئاستىدىكى تاختا -->
-        <div class="dock">
-            <div class="dock-btn">🛡️</div>
-            <div class="dock-btn">👛</div>
-            <div class="dock-center">🏠</div>
-            <div class="dock-btn">🎁</div>
-            <div class="dock-btn">🛒</div>
-        </div>
-
-        <!-- مەھسۇلات تاللاش كۆزنىكى -->
-        <div class="modal-overlay" id="pModal">
-            <div class="modal-sheet">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                    <h3 id="catTitle" style="color:#22c55e;">المحتويات</h3>
-                    <span onclick="closeModal()" style="font-size:20px; cursor:pointer;">✕</span>
-                </div>
-                <div id="prodsList"></div>
-            </div>
+        <div class="bottom-bar">
+            <div class="tab-btn" onclick="alert('ھېسابات تەڭشەكلىرى')">🛡️</div>
+            <div class="tab-btn" onclick="alert('ھەميان ۋە چىقىم')">👛</div>
+            <div class="center-tab" onclick="renderHome()">🏠</div>
+            <div class="tab-btn" onclick="alert('سوۋغاتلار')">🎁</div>
+            <div class="tab-btn" onclick="alert('سېۋەت')">🛒</div>
         </div>
 
         <script>
-            const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
+            let storeData = null;
+            let currentLevel = 'home'; // 'home' | 'sub' | 'prod'
+            let activeCat = null;
 
-            // قالدۇق پۇلنى ئوقۇش
-            async function fetchBalance() {
-                try {
-                    let r = await fetch('/api/user/balance');
-                    let d = await r.json();
-                    document.getElementById('uBalance').innerText = '$ ' + d.balance;
-                } catch(e) {}
-            }
-            fetchBalance();
+            async function init() {{
+                let res = await fetch('/api/store/data');
+                storeData = await res.json();
+                renderHome();
+            }}
 
-            // Zein Store دىن كاتېگورىيەلەرنى ئېلىش
-            async function loadCats() {
-                let res = await fetch('/api/store/categories');
-                let json = await res.json();
-                let items = json.data || [];
-                let container = document.getElementById('catsList');
+            // 1-دەرىجە: باش بەت ۋە ئاساسىي كاتېگورىيەلەر
+            function renderHome() {{
+                currentLevel = 'home';
+                document.getElementById('homeBanner').style.display = 'block';
+                document.getElementById('btnBack').style.display = 'none';
+                document.getElementById('secTitle').innerText = 'تصنيفات المتجر';
+                
+                let container = document.getElementById('viewContainer');
+                container.className = 'cards-layout';
                 container.innerHTML = '';
 
-                items.forEach(c => {
+                storeData.categories.forEach(c => {{
                     let div = document.createElement('div');
-                    div.className = 'zein-card';
-                    div.onclick = () => openCategory(c.id, c.name);
+                    div.className = 'card-wrap';
+                    div.onclick = () => renderSubcategories(c.id, c.name);
                     div.innerHTML = `
-                        <div class="zein-card-img">
-                            <img src="${c.image}" alt="${c.name}">
-                        </div>
-                        <div class="zein-card-footer">
-                            ${c.name}
-                        </div>
+                        <div class="card-img"><img src="${{c.img}}" alt="${{c.name}}"></div>
+                        <div class="card-name">${{c.name}}</div>
                     `;
                     container.appendChild(div);
-                });
-            }
-            loadCats();
+                }});
+            }}
 
-            // كاتېگورىيە بېسىلغاندا مەھسۇلاتلارنى ئېچىش
-            async function openCategory(id, name) {
-                document.getElementById('catTitle').innerText = name;
-                document.getElementById('pModal').style.display = 'flex';
-                let list = document.getElementById('prodsList');
-                list.innerHTML = '<p style="text-align:center; color:#94a3b8;">جاري التحميل...</p>';
+            // 2-دەرىجە: تۈرلەر ئىچىگە كىرىش (PUBG, Free Fire, Jawaker...)
+            function renderSubcategories(catId, catName) {{
+                currentLevel = 'sub';
+                activeCat = catId;
+                document.getElementById('homeBanner').style.display = 'none';
+                document.getElementById('btnBack').style.display = 'inline-block';
+                document.getElementById('secTitle').innerText = catName;
 
-                let res = await fetch('/api/store/products/' + id);
-                let json = await res.json();
-                let products = json.data || [];
-                list.innerHTML = '';
+                let items = storeData.subcategories[catId] || [];
+                let container = document.getElementById('viewContainer');
+                container.className = 'cards-layout';
+                container.innerHTML = '';
 
-                products.forEach(p => {
-                    let row = document.createElement('div');
-                    row.className = 'product-row';
-                    row.innerHTML = `
-                        <div>
-                            <div style="font-weight:bold; font-size:13px;">${p.name}</div>
-                            <div style="color:#22c55e; font-size:12px; margin-top:4px;">${p.price} $</div>
-                        </div>
-                        <button class="btn-order" onclick="makeOrder('${p.id}', '${p.name}')">شراء</button>
+                items.forEach(s => {{
+                    let div = document.createElement('div');
+                    div.className = 'card-wrap';
+                    div.onclick = () => renderProducts(s.id, s.name);
+                    div.innerHTML = `
+                        <div class="card-img"><img src="${{s.img}}" alt="${{s.name}}"></div>
+                        <div class="card-name">${{s.name}}</div>
                     `;
-                    list.appendChild(row);
-                });
-            }
+                    container.appendChild(div);
+                }});
+            }}
 
-            function closeModal() {
-                document.getElementById('pModal').style.display = 'none';
-            }
+            // 3-دەرىجە: زاكاز تىزىملىكى (UC, كود باھالىرى)
+            function renderProducts(subId, subName) {{
+                currentLevel = 'prod';
+                document.getElementById('btnBack').style.display = 'inline-block';
+                document.getElementById('secTitle').innerText = subName;
 
-            function makeOrder(productId, prodName) {
-                let pid = prompt(prodName + " - كىرگۈزۈش (Player ID ياكى نومۇر):");
-                if (!pid) return;
-                
-                fetch('/api/store/order', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ product_id: productId, player_id: pid })
-                }).then(r => r.json()).then(res => {
-                    alert("تم إرسال الطلب إلى Zein Store بنجاح!");
-                    closeModal();
-                });
-            }
+                let products = storeData.products[subId] || [
+                    {{"id": 1, "name": subName + " باكىتى 1", "price": "1.20"}},
+                    {{"id": 2, "name": subName + " باكىتى 2", "price": "3.50"}}
+                ];
+
+                let container = document.getElementById('viewContainer');
+                container.className = '';
+                container.innerHTML = '';
+
+                products.forEach(p => {{
+                    let div = document.createElement('div');
+                    div.className = 'product-item';
+                    div.innerHTML = `
+                        <div>
+                            <div class="p-name">${{p.name}}</div>
+                            <div class="p-price">${{p.price}} $</div>
+                        </div>
+                        <button class="btn-buy" onclick="orderPrompt('${{p.name}}')">شراء</button>
+                    `;
+                    container.appendChild(div);
+                }});
+            }}
+
+            // ئارقىغا قايتىش كۇنۇپكىسى
+            function goBack() {{
+                if (currentLevel === 'prod') {{
+                    renderSubcategories(activeCat, 'تۈرلەرگە قايتىش');
+                }} else if (currentLevel === 'sub') {{
+                    renderHome();
+                }}
+            }}
+
+            function orderPrompt(prodName) {{
+                let pid = prompt(prodName + " زاكاز قىلىش ئۈچۈن Player ID نى كىرگۈزۈڭ:");
+                if (pid) {{
+                    alert("زاكاز تەلىپى قوبۇل قىلىندى: " + prodName + " (ID: " + pid + ")");
+                }}
+            }}
+
+            init();
         </script>
     </body>
     </html>
     """
-    return html_content
+    return html
 
-# تېلېگرام بوت سىستېمىسى
+# تېلېگرام قىسمى
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
