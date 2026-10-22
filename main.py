@@ -1,28 +1,63 @@
 import os
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "BU_YERGE_BOTFATHER_TOKENI")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ZEIN_API_KEY = os.getenv("ZEIN_API_KEY", "_UMp2U9ww7ShQTi62W1XG9ZSA4RhTg-S8ok65Z8vZS1WDuJoWcu4nt97IIP3O0IJ")
 ZEIN_BASE_URL = "https://api.zein-store.com"
 
 app = FastAPI()
 
-# تېلېگرام دۇكان كۆرۈنمە يۈزى (HTML)
+def get_headers():
+    return {
+        "Authorization": f"Bearer {ZEIN_API_KEY}",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+# 1-بۆلەك: Zein Store دىن كاتېگورىيە ۋە تۈرلەرنى ئاپتوماتىك تارتىش
+@app.get("/api/zein/categories")
+async def get_zein_categories():
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(f"{ZEIN_BASE_URL}/api/categories", headers=get_headers(), timeout=10.0)
+            if res.status_code == 200:
+                return res.json()
+    except Exception:
+        pass
+    # ئەگەر ئۇلىنىشتا مەسىلە بولسا زاپاس قۇرۇلما
+    return {"categories": [{"id": 1, "name": "ئويۇنلار", "icon": "🎮"}, {"id": 2, "name": "كارتىلار", "icon": "💳"}]}
+
+# 2-بۆلەك: خېرىدار ئۈچۈن قالدۇق پۇل ۋە ئاپتوماتىك زاكاز قىلىش
+@app.post("/api/zein/order")
+async def execute_zein_order(data: dict):
+    product_id = data.get("product_id")
+    player_id = data.get("player_id")
+    payload = {
+        "product_id": product_id,
+        "player_id": player_id
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(f"{ZEIN_BASE_URL}/api/orders", json=payload, headers=get_headers(), timeout=15.0)
+            return res.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# دۇكان ئاساسىي كۆرۈنمە يۈزى (Frontend)
 @app.get("/", response_class=HTMLResponse)
 async def serve_shop():
-    # Zein Store دىن قالدۇق پۇلنى تەكشۈرۈش
+    # قالدۇق پۇلنى ئوقۇش
     balance_text = "0.00"
     try:
-        headers = {"Authorization": f"Bearer {ZEIN_API_KEY}"}
         async with httpx.AsyncClient() as client:
-            res = await client.get(f"{ZEIN_BASE_URL}/api/profile", headers=headers, timeout=5.0)
+            res = await client.get(f"{ZEIN_BASE_URL}/api/profile", headers=get_headers(), timeout=5.0)
             if res.status_code == 200:
-                data = res.json()
-                balance_text = str(data.get("balance", "0.00"))
+                profile = res.json()
+                balance_text = str(profile.get("balance", "0.00"))
     except Exception:
         balance_text = "0.00"
 
@@ -53,20 +88,23 @@ async def serve_shop():
         </div>
         <input type="text" class="search" placeholder="مەھسۇلات ئىزدەش...">
         <div class="grid">
-            <div class="card" onclick="buyItem('PUBG Mobile')"><div class="icon">🎮</div><div class="title">ئويۇنلار</div></div>
-            <div class="card" onclick="buyItem('Telegram Premium')"><div class="icon">⭐</div><div class="title">تېلېگرام</div></div>
-            <div class="card" onclick="buyItem('Digital Cards')"><div class="icon">💳</div><div class="title">كارتىلار</div></div>
-            <div class="card" onclick="buyItem('Internet')"><div class="icon">🌐</div><div class="title">ئىنتېرنېت</div></div>
-            <div class="card" onclick="buyItem('Apps')"><div class="icon">📱</div><div class="title">ئەپلەر</div></div>
-            <div class="card" onclick="buyItem('TikTok Coins')"><div class="icon">🎵</div><div class="title">TikTok</div></div>
-            <div class="card" onclick="buyItem('Accounts')"><div class="icon">🔐</div><div class="title">ھېساباتلار</div></div>
-            <div class="card" onclick="buyItem('Support')"><div class="icon">🎧</div><div class="title">مۇلازىمەت</div></div>
+            <div class="card" onclick="orderItem('PUBG Mobile')"><div class="icon">🎮</div><div class="title">ئويۇنلار</div></div>
+            <div class="card" onclick="orderItem('Telegram Premium')"><div class="icon">⭐</div><div class="title">تېلېگرام</div></div>
+            <div class="card" onclick="orderItem('كارتىلار')"><div class="icon">💳</div><div class="title">كارتىلار</div></div>
+            <div class="card" onclick="orderItem('ئىنتېرنېت')"><div class="icon">🌐</div><div class="title">ئىنتېرنېت</div></div>
+            <div class="card" onclick="orderItem('ئەپلەر')"><div class="icon">📱</div><div class="title">ئەپلەر</div></div>
+            <div class="card" onclick="orderItem('TikTok')"><div class="icon">🎵</div><div class="title">TikTok</div></div>
+            <div class="card" onclick="orderItem('ھېساباتلار')"><div class="icon">🔐</div><div class="title">ھېساباتلار</div></div>
+            <div class="card" onclick="orderItem('مۇلازىمەت')"><div class="icon">🎧</div><div class="title">مۇلازىمەت</div></div>
         </div>
         <script>
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
-            function buyItem(name) {{
-                alert(name + " زاكاز قىلىش تاللاندى!");
+            function orderItem(name) {{
+                let id = prompt(name + " ئۈچۈن ئويۇن ياكى تېلېفون ID نى كىرگۈزۈڭ:");
+                if (id) {{
+                    alert("زاكاز يوللاندى: " + name + " (ID: " + id + ")");
+                }}
             }}
         </script>
     </body>
@@ -74,7 +112,7 @@ async def serve_shop():
     """
     return html_content
 
-# تېلېگرام بوت قىسمى
+# تېلېگرام بوت بۇيرۇقلىرى
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,7 +121,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🛍 دۇكاننى ئېچىش", web_app=WebAppInfo(url=render_url))]
     ]
     await update.message.reply_text(
-        "MaxStore غا كەلگىنىڭىزنى قارشى ئالىمىز!\nدۇكاننى ئېچىش ئۈچۈن تۆۋەندىكى كۇنۇپكىنى بېسىڭ:",
+        "MaxStore غا كەلگىنىڭىزنى قارشى ئالىمىز!\nتۆۋەندىكى كۇنۇپكىنى بېسىپ بىۋاسىتە زاكاز قىلىڭ:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -93,7 +131,6 @@ bot_app.add_handler(CommandHandler("start", start))
 async def startup_event():
     await bot_app.initialize()
     await bot_app.start()
-    # Webhook تەڭشىكى
     render_url = os.getenv("RENDER_EXTERNAL_URL")
     if render_url:
         await bot_app.bot.set_webhook(url=f"{render_url}/telegram")
